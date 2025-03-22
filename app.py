@@ -14,7 +14,7 @@ company_name = st.text_input("Company Name", "Tesla")
 
 if st.button("Analyze"):
     with st.spinner("Analyzing news articles..."):
-        api_url = "18.142.128.26"
+        api_url = " https://18.142.128.26"
         response = requests.post(api_url, json={"company_name": company_name})
         
         if response.status_code == 200:
