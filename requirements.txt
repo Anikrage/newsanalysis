@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+streamlit
+requests
+beautifulsoup4
+gtts
+transformers
+numpy
+pandas
+scikit-learn
+googletrans==4.0.0-rc1
+matplotlib
+nltk
+torch
+gnews
