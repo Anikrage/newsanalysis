@@ -1,10 +1,9 @@
-
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import utils
 import logging
-import os
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -13,6 +12,7 @@ app = FastAPI()
 
 class CompanyRequest(BaseModel):
     company_name: str
+
 @app.post("/analyze-company")
 async def analyze_company(request: CompanyRequest):
     try:
@@ -20,26 +20,34 @@ async def analyze_company(request: CompanyRequest):
         articles = utils.search_news(request.company_name)
         valid_articles = []
         
+        # Process each article
         for url in articles:
             article = utils.extract_article_content(url)
             if article and len(article['content']) > 100:  # Filter short content
                 try:
-                    article_data = {
+                    # Process the article
+                    summary = utils.summarize_text(article['content'])
+                    sentiment = utils.analyze_sentiment(article['content'])
+                    topics = utils.extract_topics(article['content'])
+                    
+                    # Add to valid articles
+                    valid_articles.append({
                         'title': article['title'],
                         'url': article['url'],
-                        'summary': utils.summarize_text(article['content']),
-                        'sentiment': utils.analyze_sentiment(article['content']),
-                        'topics': utils.extract_topics(article['content'])
-                    }
-                    valid_articles.append(article_data)
+                        'summary': summary,
+                        'sentiment': sentiment,
+                        'topics': topics
+                    })
                 except Exception as e:
                     logger.error(f"Error processing {url}: {str(e)}")
         
+        # Check if we have any valid articles
         if not valid_articles:
             return JSONResponse(content={
                 "message": "No valid articles found",
                 "fallback": True,
-                "articles": []
+                "articles": [],
+                "company": request.company_name
             })
         
         # Perform comparative analysis
@@ -53,11 +61,10 @@ async def analyze_company(request: CompanyRequest):
         summary_text += f"A total of {comparative_analysis['total_articles']} articles were analyzed.\n"
         
         # Discuss sentiment distribution
-        if sentiment_distribution:
-            summary_text += f"Sentiment distribution: "
-            summary_text += f"{sentiment_distribution.get('Positive', 0)} positive articles, "
-            summary_text += f"{sentiment_distribution.get('Negative', 0)} negative articles, and "
-            summary_text += f"{sentiment_distribution.get('Neutral', 0)} neutral articles.\n"
+        summary_text += f"Sentiment distribution: "
+        summary_text += f"{sentiment_distribution.get('Positive', 0)} positive articles, "
+        summary_text += f"{sentiment_distribution.get('Negative', 0)} negative articles, and "
+        summary_text += f"{sentiment_distribution.get('Neutral', 0)} neutral articles.\n"
         
         # Discuss common topics
         if common_topics:
@@ -66,8 +73,7 @@ async def analyze_company(request: CompanyRequest):
         
         # Add overall sentiment score
         avg_score = comparative_analysis["average_sentiment_score"]
-        if avg_score:
-            summary_text += f"The average sentiment score across all articles was {avg_score:.2f}.\n"
+        summary_text += f"The average sentiment score across all articles was {avg_score:.2f}.\n"
         
         # Generate Hindi translation and speech
         speech_file, hindi_text = utils.generate_hindi_speech(summary_text)
@@ -89,12 +95,10 @@ async def analyze_company(request: CompanyRequest):
         logger.error(f"API Error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @app.get("/")
 async def root():
     return {"message": "Welcome to the Company News Analyzer API"}
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.environ.get("PORT", 10000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(app, host="0.0.0.0", port=8000)

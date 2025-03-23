@@ -14,7 +14,7 @@ company_name = st.text_input("Company Name", "Tesla")
 
 if st.button("Analyze"):
     with st.spinner("Analyzing news articles..."):
-        api_url = " https://18.142.128.26"
+        api_url = "http://127.0.0.1:8000/analyze-company"
         response = requests.post(api_url, json={"company_name": company_name})
         
         if response.status_code == 200:
@@ -22,11 +22,17 @@ if st.button("Analyze"):
             
             # Check if we have valid results
             if data.get("fallback", False):
-                st.warning("No recent news articles found. Showing default analysis.")
+                st.warning("No recent news articles found for this company.")
+                st.stop()
             
             st.subheader("Analysis Results")
             
-            # Only show comparative analysis if available
+            # Display summary text
+            if "summary_text" in data:
+                st.write("## Summary")
+                st.write(data["summary_text"])
+            
+            # Display comparative analysis if available
             if "comparative_analysis" in data:
                 st.write("## Comparative Analysis")
                 col1, col2 = st.columns(2)
@@ -70,8 +76,16 @@ if st.button("Analyze"):
                     with st.expander(f"{i+1}. {article.get('title', 'Untitled Article')}"):
                         st.write(f"**URL:** {article.get('url', 'No URL available')}")
                         st.write(f"**Summary:** {article.get('summary', 'No summary available')}")
-                        st.write(f"**Sentiment:** {article.get('sentiment', {}).get('sentiment', 'Unknown')} "
-                                f"(Score: {article.get('sentiment', {}).get('score', 0):.2f})")
+                        
+                        # Handle sentiment with nested dictionary access
+                        sentiment = article.get('sentiment', {})
+                        if isinstance(sentiment, dict):
+                            sent_label = sentiment.get('sentiment', 'Unknown')
+                            sent_score = sentiment.get('score', 0)
+                            st.write(f"**Sentiment:** {sent_label} (Score: {sent_score:.2f})")
+                        else:
+                            st.write(f"**Sentiment:** {sentiment}")
+                        
                         st.write(f"**Topics:** {', '.join(article.get('topics', ['No topics identified']))}")
             else:
                 st.write("## No Articles Found")
@@ -82,17 +96,18 @@ if st.button("Analyze"):
                 st.write("## Hindi Summary")
                 st.write(data["hindi_text"])
                 
-                if "speech_file" in data:
+                if "speech_file" in data and data["speech_file"]:
                     try:
                         with open(data["speech_file"], "rb") as audio_file:
                             audio_bytes = audio_file.read()
                             st.audio(audio_bytes, format="audio/mp3")
                     except FileNotFoundError:
                         st.error("Audio file not found")
-            
+                else:
+                    st.warning("Hindi audio summary is unavailable")
             else:
                 st.write("## Summary Unavailable")
-                st.warning("Could not generate summary")
+                st.warning("Could not generate Hindi summary")
             
         else:
             st.error(f"Error: {response.text}")
